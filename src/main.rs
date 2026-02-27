@@ -40,31 +40,39 @@ fn main() -> Result<()> {
                 Ok(f) => f,
                 Err(_) => continue, // Skip files that can't be opened
             };
-            let reader = BufReader::new(file);
+            let mut reader = BufReader::new(file);
 
-            for (index, line) in reader.lines().enumerate() {
-                let line = match line {
-                    Ok(l) => l,
-                    Err(_) => break, // Skip lines that can't be read (e.g., binary files)
-                };
-                let search_line = if cli.ignore_case {
-                    line.to_lowercase()
+            let mut line = String::new();
+            let mut line_num = 0;
+            while reader.read_line(&mut line).unwrap_or(0) > 0 {
+                line_num += 1;
+                // Remove newline characters for searching and printing
+                if line.ends_with('\n') {
+                    line.pop();
+                    if line.ends_with('\r') {
+                        line.pop();
+                    }
+                }
+
+                let found = if cli.ignore_case {
+                    line.to_lowercase().contains(&pattern)
                 } else {
-                    line.clone()
+                    line.contains(&pattern)
                 };
 
-                if search_line.contains(&pattern) {
+                if found {
                     let display_path = path.display().to_string().bright_blue();
-                    let line_num = if cli.line_number {
-                        format!("{}:", index + 1).yellow()
+                    let line_num_str = if cli.line_number {
+                        format!("{}:", line_num).yellow()
                     } else {
                         "".clear()
                     };
 
                     // Highlight the pattern in the line
                     let highlighted_line = highlight_pattern(&line, &cli.pattern, cli.ignore_case);
-                    println!("{} {}{}", display_path, line_num, highlighted_line);
+                    println!("{} {}{}", display_path, line_num_str, highlighted_line);
                 }
+                line.clear();
             }
         }
     }
